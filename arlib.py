@@ -9,8 +9,17 @@ import struct
 import shutil
 import logging
 
-BLOCKSIZE = 65535
-WHITESPACERE = re.compile(r"[\s]")
+GNU = 0
+BSD = 1
+
+_FORMATNAMES = {
+    None: "(none)",
+    GNU: "GNU",
+    BSD: "BSD"
+}
+
+_BLOCKSIZE = 65535
+_WHITESPACERE = re.compile(r"[\s]")
 
 logging.basicConfig()
 log = logging.getLogger("arlib")
@@ -23,10 +32,8 @@ class InvalidArchiveException(Exception):
     pass
 
 class ArchiveMember(object):
-    GNU = 0
-    BSD = 1
-
     format = None
+    normal = True
 
     _header_format = struct.Struct("=16s12s6s6s8s10s2s")
     _header_fill = " "
@@ -39,14 +46,15 @@ class ArchiveMember(object):
         self._offset = None
 
         self.archive = archive
+        self.sourcedir = None
         if path:
             self.init_from_file(path)
         else:
             self.init_from_archive()
 
     def __repr__(self):
-        return "<{}(filename={}, name={}, date={}, uid={}, gid={}, mode=0{:04o}, size={})>".format(
-            self.__class__.__name__, self.filename, self.name, self.date, self.uid, self.gid, self.mode, self.size)
+        return "<{}(filename={}, sourcedir={}, name={}, date={}, uid={}, gid={}, mode=0{:04o}, size={})>".format(
+            self.__class__.__name__, self.filename, self.sourcedir, self.name, self.date, self.uid, self.gid, self.mode, self.size)
 
     @property
     def name(self):
@@ -132,7 +140,7 @@ class ArchiveMember(object):
         date = str(self.date).ljust(12)
         uid = str(self.uid).ljust(6)
         gid = str(self.gid).ljust(6)
-        mode = str(self.mode).ljust(8)
+        mode = "{:o}".format(self.mode).ljust(8)
         size = str(self.size).ljust(10)
 
         packed = self._header_format.pack(name, date, uid, gid, mode, size, self._header_tail)
@@ -145,10 +153,10 @@ class ArchiveMember(object):
                 infile = self.archive.instream
                 infile.seek(self.offset)
                 remaining = self.filesize
-                while remaining >= BLOCKSIZE:
-                    buf = infile.read(BLOCKSIZE)
+                while remaining >= _BLOCKSIZE:
+                    buf = infile.read(_BLOCKSIZE)
                     outfile.write(buf)
-                    remaining -= BLOCKSIZE
+                    remaining -= _BLOCKSIZE
                 if remaining > 0:
                     buf = infile.read(remaining)
                     outfile.write(buf)
@@ -166,7 +174,7 @@ class ArchiveMember(object):
         outfile = self.archive.outstream
         newoffset = outfile.tell()
         infile = None
-        if not self.sourcedir is None:
+        if self.sourcedir is None:
             infile = self.archive.instream
             infile.seek(self.offset)
         else:
@@ -174,10 +182,10 @@ class ArchiveMember(object):
             infile = open(externalfile, "rb")
 
         remaining = self.filesize
-        while remaining >= BLOCKSIZE:
-            buf = infile.read(BLOCKSIZE)
+        while remaining >= _BLOCKSIZE:
+            buf = infile.read(_BLOCKSIZE)
             outfile.write(buf)
-            remaining -= BLOCKSIZE
+            remaining -= _BLOCKSIZE
         if remaining > 0:
             buf = infile.read(remaining)
             outfile.write(buf)
@@ -185,12 +193,12 @@ class ArchiveMember(object):
         self.sourcedir = None
 
 class GNUShortMember(ArchiveMember):
-    format = ArchiveMember.GNU
+    format = GNU
 
     _name_terminal = "/"
 
     def set_name_from_file(self, filename):
-        if len(filename) < 16 and not WHITESPACERE.search(filename):
+        if len(filename) < 16 and not _WHITESPACERE.search(filename):
             self.filename = filename
             self.name = filename + self._name_terminal
         else:
@@ -198,14 +206,14 @@ class GNUShortMember(ArchiveMember):
 
     def set_name_from_archive(self, nameinfo):
         if len(nameinfo) > 1 and nameinfo.endswith(self._name_terminal) and not nameinfo.startswith(self._name_terminal) \
-                and not WHITESPACERE.search(nameinfo):
+                and not _WHITESPACERE.search(nameinfo):
             self.filename = nameinfo[:-1]
             self.name = nameinfo
         else:
             raise WrongMemberTypeException("Not a short GNU archive member.")
 
 class GNULongMember(ArchiveMember):
-    format = ArchiveMember.GNU
+    format = GNU
 
     _name_prefix = "/"
     _name_re = re.compile(r"^/(\d+)$")
@@ -226,7 +234,7 @@ class GNULongMember(ArchiveMember):
         self.archive.strings[self] = value
 
     def set_name_from_file(self, filename):
-        if len(filename) >= 16 or WHITESPACERE.search(filename):
+        if len(filename) >= 16 or _WHITESPACERE.search(filename):
             self.filename = filename
         else:
             raise WrongMemberTypeException("Not a long GNU archive member.")
@@ -240,7 +248,8 @@ class GNULongMember(ArchiveMember):
             raise WrongMemberTypeException("Not a long GNU archive member.")
 
 class GNUSymbolTable(ArchiveMember):
-    format = ArchiveMember.GNU
+    format = GNU
+    normal = False
 
     _name_literal = "/"
 
@@ -248,14 +257,17 @@ class GNUSymbolTable(ArchiveMember):
         super(GNUSymbolTable, self).__init__(archive, path)
         self.archive.symbols = self
 
-    def init_from_path(self):
-        self.name = self._name_literal
-        self.filename = None
-        self.date = int(time.time())
-        self.uid = 0
-        self.gid = 0
-        self.mode = 0644
-        self.offset = None
+    def init_from_file(self, path):
+        if path == True:
+            self.name = self._name_literal
+            self.filename = None
+            self.date = int(time.time())
+            self.uid = 0
+            self.gid = 0
+            self.mode = 0100644
+            self.offset = None
+        else:
+            raise WrongMemberTypeException("Not a GNU symbol table archive member.")
 
     # @property
     # def size(self):
@@ -272,12 +284,15 @@ class GNUSymbolTable(ArchiveMember):
             raise WrongMemberTypeException("Not a GNU symbol table archive member.")
 
 class GNUStringTable(ArchiveMember):
-    format = ArchiveMember.GNU
+    format = GNU
+    normal = False
 
     _delimiter = "/\n"
     _name_literal = "//"
 
     def __init__(self, archive, path=None):
+        self._items = {}
+        self._order = []
         super(GNUStringTable, self).__init__(archive, path)
         self.archive.strings = self
 
@@ -285,21 +300,24 @@ class GNUStringTable(ArchiveMember):
     def size(self):
         size = 0
         delimlen = len(self._delimiter)
-        for i in self._items:
-            size += len(i['filename']) + delimlen
+        for m in self._order:
+            size += len(self._items[m]) + delimlen
         return size
     @size.setter
     def size(self, value):
         pass
 
     def init_from_file(self, path):
-        self.name = self._name_literal
-        self.filename = None
-        self.date = int(time.time())
-        self.uid = 0
-        self.gid = 0
-        self.mode = 0644
-        self.offset = None
+        if path == True:
+            self.name = self._name_literal
+            self.filename = None
+            self.date = int(time.time())
+            self.uid = 0
+            self.gid = 0
+            self.mode = 0100644
+            self.offset = None
+        else:
+            raise WrongMemberTypeException("Not a GNU string table archive member.")
 
     def set_name_from_archive(self, nameinfo):
         if nameinfo == self._name_literal:
@@ -320,30 +338,70 @@ class GNUStringTable(ArchiveMember):
                 raise InvalidArchiveException("Unterminated string table.")
             filename += c
         filename = filename[:-2]
-        self._items[member] = filename
+        self[member] = filename
         instream.seek(prevoffset)
 
     def __len__(self):
-        return len(self._items)
+        return len(self._order)
 
     def __getitem__(self, member):
         return self._items[member]
 
     def __setitem__(self, member, filename):
         self._items[member] = filename
+        if member not in self._order:
+            self._order.append(member)
 
     def __delitem__(self, member):
         if member in self._items:
             del self._items[member]
+        if member in self._order:
+            self._order.remove(member)
+
+    class Iterator(object):
+        def __init__(self, order, items):
+            self._order = order
+            self._items = items
+            self.index = -1
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            return self.next()
+
+        def next(self):
+            if self.index < len(self._order):
+                m = self._order[self.index]
+                self.index += 1
+                return (m, self._items[m])
+            else:
+                raise StopIteration()
 
     def __iter__(self):
-        return self._items.__iter__()
+        return Iterator(self._order, self._items)
+
+    def string_offset(self, member):
+        offset = 0
+        delimlen = len(self._delimiter)
+        for m in self._order:
+            if m == member:
+                break
+            offset += len(self._items[m]) + delimlen
+        return offset
+
+    def collect(self):
+        outfile = self.archive.outstream
+        newoffset = outfile.tell()
+        for m in self._order:
+            outfile.write(self._items[m] + self._delimiter)
+        self.offset = newoffset
 
 class BSDShortMember(ArchiveMember):
-    format = ArchiveMember.BSD
+    format = BSD
 
     def set_name_from_file(self, filename):
-        if len(filename) <= 16 and not WHITESPACERE.search(filename):
+        if len(filename) <= 16 and not _WHITESPACERE.search(filename):
             self.name = filename
             self.filename = filename
         else:
@@ -357,7 +415,7 @@ class BSDShortMember(ArchiveMember):
             raise WrongMemberTypeException("Not a short BSD archive member.")
 
 class BSDLongMember(ArchiveMember):
-    format = ArchiveMember.BSD
+    format = BSD
 
     _name_prefix = "#1/"
 
@@ -380,7 +438,7 @@ class BSDLongMember(ArchiveMember):
         pass
 
     def set_name_from_file(self, filename):
-        if len(filename) > 16 or WHITESPACERE.search(filename):
+        if len(filename) > 16 or _WHITESPACERE.search(filename):
             self.namelength = len(filename)
             self.filename = filename
         else:
@@ -400,7 +458,11 @@ class BSDLongMember(ArchiveMember):
         self.archive.outstream.write(self.filename)
 
 class BSDSymbolTable(ArchiveMember):
-    format = ArchiveMember.BSD
+    UNSORTED = 0
+    SORTED = 1
+
+    format = BSD
+    normal = False
 
     _name_literal = "__.SYMDEF"
     _sorted_suffix = "SORTED"
@@ -433,19 +495,22 @@ class BSDSymbolTable(ArchiveMember):
         pass
 
     def init_from_file(self, path):
-        self.sorted = path == "sorted"
-        if self.sorted:
-            self.filename = self._name_literal + " " + self._sorted_suffix
-            self.namelength = len(self.filename)
-        else:
-            self.filename = None
-            self.namelength = 0
+        if isinstance(path, int):
+            self.sorted = (path == SORTED)
+            if self.sorted:
+                self.filename = self._name_literal + " " + self._sorted_suffix
+                self.namelength = len(self.filename)
+            else:
+                self.filename = None
+                self.namelength = 0
 
-        self.date = int(time.time())
-        self.uid = 0
-        self.gid = 0
-        self.mode = 0644
-        self.offset = None
+            self.date = int(time.time())
+            self.uid = 0
+            self.gid = 0
+            self.mode = 0100644
+            self.offset = None
+        else:
+            raise WrongMemberTypeException("Not a BSD symbol table archive member.")
 
     def set_name_from_archive(self, nameinfo):
         if nameinfo == self._name_literal:
@@ -470,21 +535,16 @@ class Archive(object):
     _magic = "!<arch>\n"
     _body_pad = "\n"
 
-    def __init__(self, format=ArchiveMember.GNU):
+    def __init__(self, format=GNU):
         self.reset()
         self.format = format
 
     def __repr__(self):
-        formats = {
-            None: "(none)",
-            ArchiveMember.GNU: "GNU",
-            ArchiveMember.BSD: "BSD"
-        }
-        return "<Archive(format={}, member_count={})>".format(formats[self._format], len(self.members))
+        return "<Archive(format={}, member_count={})>".format(_FORMATNAMES[self._format], len(self.members))
 
     @property
     def strings(self):
-        if self._strings is None and self.format == ArchiveMember.GNU:
+        if self._strings is None and self.format == GNU:
             GNUStringTable(self, True)
         return self._strings
 
@@ -501,7 +561,7 @@ class Archive(object):
 
     @format.setter
     def format(self, value):
-        assert value == ArchiveMember.GNU or value == ArchiveMember.BSD
+        assert value == GNU or value == BSD
         self._format = value
 
     def reset(self):
@@ -528,7 +588,8 @@ class Archive(object):
 
         member = self.read_member()
         while member is not None:
-            self.members.append(member)
+            if member.normal:
+                self.members.append(member)
             if self.instream.tell() % 2 == 1:
                 padding = self.instream.read(len(self._body_pad))
                 if padding != self._body_pad:
@@ -553,8 +614,48 @@ class Archive(object):
             except EOFError:
                 log.debug("End of file")
                 return None
-        if member == None:
+        if member is None:
             raise WrongMemberTypeException("Unknown member type")
 
         log.info("Read member %r", member)
         return member
+
+    def save(self, filething):
+        log.info("Saving %r", filething)
+        if isinstance(filething, str):
+            self.outstream = open(filething, "wb")
+        else:
+            self.outstream = filething
+        assert hasattr(self.outstream, "write") and hasattr(self.outstream, "tell") and hasattr(self.outstream, "seek")
+
+        self.outstream.write(self._magic)
+        self.write_member(self.symbols)
+        if self.format == GNU:
+            self.write_member(self.strings)
+        for m in self.members:
+            self.write_member(m)
+            if self.outstream.tell() % 2 == 1:
+                self.outstream.write(self._body_pad)
+
+        log.info("Saved %r", self)
+
+    @staticmethod
+    def write_member(member):
+        if member:
+            member.write_header()
+            member.collect()
+
+    def add_member(self, filepath):
+        member = None
+        for cls in ArchiveMember.derived():
+            try:
+                if cls.format == self.format:
+                    member = cls(self, filepath)
+                    break
+            except WrongMemberTypeException, e:
+                log.debug("Wrong type for member: %s", e)
+        if member is None:
+            raise WrongMemberTypeException("No member type satisfied {}".format(filepath))
+
+        self.members.append(member)
+        log.info("Added member %r", member)
