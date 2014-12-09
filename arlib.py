@@ -5,6 +5,7 @@
 import os
 import re
 import time
+import string
 import struct
 import shutil
 import logging
@@ -68,6 +69,8 @@ class ArchiveMember(object):
         return self._filename
     @filename.setter
     def filename(self, value):
+        if isinstance(value, str):
+            value = value.strip(string.whitespace + "\x00")
         self._filename = value
 
     @property
@@ -147,8 +150,13 @@ class ArchiveMember(object):
         self.archive.outstream.write(packed)
 
     def extract(self, path):
+        path = os.path.abspath(path)
         filepath = os.path.join(path, self.filename)
         if self.sourcedir is None:
+            try:
+                os.makedirs(path)
+            except OSError:
+                pass
             with open(filepath, "wb") as outfile:
                 infile = self.archive.instream
                 infile.seek(self.offset)
@@ -167,7 +175,8 @@ class ArchiveMember(object):
                 pass
             os.utime(filepath, (time.time(), self.date))
         else:
-            externalfile = os.path.join(self.sourcedir, self.filename)
+            externaldir = os.path.abspath(self.sourcedir)
+            externalfile = os.path.join(externaldir, self.filename)
             shutil.copy2(externalfile, filepath)
 
     def collect(self):
@@ -178,7 +187,8 @@ class ArchiveMember(object):
             infile = self.archive.instream
             infile.seek(self.offset)
         else:
-            externalfile = os.path.join(self.sourcedir, self.filename)
+            externaldir = os.path.abspath(self.sourcedir)
+            externalfile = os.path.join(externaldir, self.filename)
             infile = open(externalfile, "rb")
 
         remaining = self.filesize
@@ -231,6 +241,8 @@ class GNULongMember(ArchiveMember):
         return self.archive.strings[self]
     @filename.setter
     def filename(self, value):
+        if isinstance(value, str):
+            value = value.strip(string.whitespace + "\x00")
         self.archive.strings[self] = value
 
     def set_name_from_file(self, filename):
@@ -298,14 +310,17 @@ class GNUStringTable(ArchiveMember):
 
     @property
     def size(self):
-        size = 0
-        delimlen = len(self._delimiter)
-        for m in self._order:
-            size += len(self._items[m]) + delimlen
-        return size
+        if self._size is None:
+            size = 0
+            delimlen = len(self._delimiter)
+            for m in self._order:
+                size += len(self._items[m]) + delimlen
+            return size
+        else:
+            return self._size
     @size.setter
     def size(self, value):
-        pass
+        self._size = value
 
     def init_from_file(self, path):
         if path == True:
@@ -326,6 +341,36 @@ class GNUStringTable(ArchiveMember):
         else:
             raise WrongMemberTypeException("Not a GNU string table archive member.")
 
+    def init_from_archive(self):
+        header = self.archive.instream.read(self._header_format.size)
+        if len(header) < self._header_format.size:
+            raise EOFError()
+        nameinfo, date, uid, gid, mode, size, tail = self._header_format.unpack(header)
+        log.debug("Read header values: %s, %s, %s, %s, %s, %s",
+            nameinfo.strip(), date.strip(), uid.strip(), gid.strip(), mode.strip(), size.strip())
+        assert tail == self._header_tail
+
+        self.set_name_from_archive(nameinfo.strip())
+        self.sourcedir = None
+        try:
+            self.date = int(date.strip())
+        except ValueError:
+            self.date = 0
+        try:
+            self.uid = int(uid.strip())
+        except ValueError:
+            self.uid = 0
+        try:
+            self.gid = int(gid.strip())
+        except ValueError:
+            self.gid = 0
+        try:
+            self.mode = int(mode.strip(), 8)
+        except ValueError:
+            self.mode = 0100644
+        self.size = int(size.strip())
+        self.offset = self.archive.instream.tell()
+
     def map(self, member, offset):
         instream = self.archive.instream
         prevoffset = instream.tell()
@@ -338,7 +383,7 @@ class GNUStringTable(ArchiveMember):
                 raise InvalidArchiveException("Unterminated string table.")
             filename += c
         filename = filename[:-2]
-        self[member] = filename
+        self[member] = filename.strip(string.whitespace + "\x00")
         instream.seek(prevoffset)
 
     def __len__(self):
@@ -645,7 +690,7 @@ class Archive(object):
             member.write_header()
             member.collect()
 
-    def add_member(self, filepath):
+    def add(self, filepath):
         member = None
         for cls in ArchiveMember.derived():
             try:
@@ -659,3 +704,19 @@ class Archive(object):
 
         self.members.append(member)
         log.info("Added member %r", member)
+
+    def __len__(self):
+        return len(self.members)
+
+    def __getitem__(self, filename):
+        for m in self.members:
+            if m.filename == filename:
+                return m
+        raise KeyError()
+
+    def __iter__(self):
+        return iter(self.members)
+
+    def extract_all(self, path):
+        for m in self.members:
+            m.extract(path)
