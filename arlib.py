@@ -231,7 +231,7 @@ class GNULongMember(ArchiveMember):
     @property
     def name(self):
         offset = self.archive.strings.string_offset(self)
-        return self._name_prefix + bytearray(str(offset))
+        return self._name_prefix + bytes(str(offset))
     @name.setter
     def name(self, value):
         self._name = value
@@ -477,7 +477,7 @@ class BSDLongMember(ArchiveMember):
 
     @property
     def name(self):
-        return self._name_prefix + bytearray(str(self.namelength))
+        return self._name_prefix + bytes(str(self.namelength))
     @name.setter
     def name(self, value):
         pass
@@ -534,7 +534,7 @@ class BSDSymbolTable(ArchiveMember):
         if self.filename is None:
             return self._name_literal
         else:
-            return BSDLongMember._name_prefix + bytearray(str(self.namelength))
+            return BSDLongMember._name_prefix + bytes(str(self.namelength))
     @name.setter
     def name(self, value):
         pass
