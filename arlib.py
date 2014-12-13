@@ -20,7 +20,7 @@ _FORMATNAMES = {
 }
 
 _BLOCKSIZE = 65535
-_WHITESPACERE = re.compile(r"[\s]")
+_WHITESPACERE = re.compile(b"[\s]")
 
 logging.basicConfig()
 log = logging.getLogger("arlib")
@@ -226,7 +226,7 @@ class GNULongMember(ArchiveMember):
     format = GNU
 
     _name_prefix = b"/"
-    _name_re = re.compile(r"^/(\d+)$")
+    _name_re = re.compile(b"^/(\d+)$")
 
     @property
     def name(self):
