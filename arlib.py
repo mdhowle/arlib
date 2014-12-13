@@ -54,7 +54,7 @@ class ArchiveMember(object):
             self.init_from_archive()
 
     def __repr__(self):
-        return "<{}(filename={}, sourcedir={}, name={}, date={}, uid={}, gid={}, mode=0{:04o}, size={})>".format(
+        return "<{0}(filename={1}, sourcedir={2}, name={3}, date={4}, uid={5}, gid={6}, mode=0{7:04o}, size={8})>".format(
             self.__class__.__name__, self.filename, self.sourcedir, self.name, self.date, self.uid, self.gid, self.mode, self.size)
 
     @property
@@ -585,7 +585,7 @@ class Archive(object):
         self.format = format
 
     def __repr__(self):
-        return "<Archive(format={}, member_count={})>".format(_FORMATNAMES[self._format], len(self.members))
+        return "<Archive(format={0}, member_count={1})>".format(_FORMATNAMES[self._format], len(self.members))
 
     @property
     def strings(self):
@@ -629,7 +629,7 @@ class Archive(object):
 
         magic = self.instream.read(len(self._magic))
         if magic != self._magic:
-            raise InvalidArchiveException("Source of invalid archive: {}".format(self.instream))
+            raise InvalidArchiveException("Source of invalid archive: {0}".format(self.instream))
 
         member = self.read_member()
         while member is not None:
@@ -638,7 +638,7 @@ class Archive(object):
             if self.instream.tell() % 2 == 1:
                 padding = self.instream.read(len(self._body_pad))
                 if padding != self._body_pad:
-                    raise InvalidArchiveException("Source of invalid archive: {}".format(self.instream))
+                    raise InvalidArchiveException("Source of invalid archive: {0}".format(self.instream))
             member = self.read_member()
 
         log.info("Loaded %r", self)
@@ -700,7 +700,7 @@ class Archive(object):
             except WrongMemberTypeException as e:
                 log.debug("Wrong type for member: %s", e)
         if member is None:
-            raise WrongMemberTypeException("No member type satisfied {}".format(filepath))
+            raise WrongMemberTypeException("No member type satisfied {0}".format(filepath))
 
         self.members.append(member)
         log.info("Added member %r", member)
