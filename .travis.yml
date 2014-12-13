@@ -7,5 +7,5 @@ python:
     - "3.4"
 
 script:
-    - cd test_subjects/source && make
     - nosetests
+    - cd test_subjects/source && make
