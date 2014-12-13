@@ -276,7 +276,7 @@ class GNUSymbolTable(ArchiveMember):
             self.date = int(time.time())
             self.uid = 0
             self.gid = 0
-            self.mode = 0100644
+            self.mode = 0o100644
             self.offset = None
         else:
             raise WrongMemberTypeException("Not a GNU symbol table archive member.")
@@ -329,7 +329,7 @@ class GNUStringTable(ArchiveMember):
             self.date = int(time.time())
             self.uid = 0
             self.gid = 0
-            self.mode = 0100644
+            self.mode = 0o100644
             self.offset = None
         else:
             raise WrongMemberTypeException("Not a GNU string table archive member.")
@@ -367,7 +367,7 @@ class GNUStringTable(ArchiveMember):
         try:
             self.mode = int(mode.strip(), 8)
         except ValueError:
-            self.mode = 0100644
+            self.mode = 0o100644
         self.size = int(size.strip())
         self.offset = self.archive.instream.tell()
 
@@ -552,7 +552,7 @@ class BSDSymbolTable(ArchiveMember):
             self.date = int(time.time())
             self.uid = 0
             self.gid = 0
-            self.mode = 0100644
+            self.mode = 0o100644
             self.offset = None
         else:
             raise WrongMemberTypeException("Not a BSD symbol table archive member.")

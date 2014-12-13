@@ -18,7 +18,7 @@ def test_loading_bsd_archive():
     filenames = sorted([m.filename for m in arc])
     expected = ["alpha.o", "another_long_file_name.o", "test.o", "this_is_a_long_file_name.o", "zeta.o"]
     assert expected == filenames
-    assert arc["test.o"].mode == 0100644
+    assert arc["test.o"].mode == 0o100644
 
     arc.extract_all("bsd1")
     for f in expected:
@@ -40,7 +40,7 @@ def test_loading_gnu_archive():
     filenames = sorted([m.filename for m in arc])
     expected = ["alpha.o", "another_long_file_name.o", "test.o", "this_is_a_long_file_name.o", "zeta.o"]
     assert expected == filenames
-    assert arc["test.o"].mode == 0100644
+    assert arc["test.o"].mode == 0o100644
 
     arc.extract_all("gnu1")
     for f in expected:
