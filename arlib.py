@@ -37,8 +37,8 @@ class ArchiveMember(object):
     normal = True
 
     _header_format = struct.Struct("=16s12s6s6s8s10s2s")
-    _header_fill = " "
-    _header_tail = "`\n"
+    _header_fill = b" "
+    _header_tail = b"`\n"
 
     def __init__(self, archive, path=None):
         self._name = None
@@ -70,7 +70,7 @@ class ArchiveMember(object):
     @filename.setter
     def filename(self, value):
         if isinstance(value, str):
-            value = value.strip(string.whitespace + "\x00")
+            value = value.strip(string.whitespace + b"\x00")
         self._filename = value
 
     @property
@@ -205,7 +205,7 @@ class ArchiveMember(object):
 class GNUShortMember(ArchiveMember):
     format = GNU
 
-    _name_terminal = "/"
+    _name_terminal = b"/"
 
     def set_name_from_file(self, filename):
         if len(filename) < 16 and not _WHITESPACERE.search(filename):
@@ -225,7 +225,7 @@ class GNUShortMember(ArchiveMember):
 class GNULongMember(ArchiveMember):
     format = GNU
 
-    _name_prefix = "/"
+    _name_prefix = b"/"
     _name_re = re.compile(r"^/(\d+)$")
 
     @property
@@ -242,7 +242,7 @@ class GNULongMember(ArchiveMember):
     @filename.setter
     def filename(self, value):
         if isinstance(value, str):
-            value = value.strip(string.whitespace + "\x00")
+            value = value.strip(string.whitespace + b"\x00")
         self.archive.strings[self] = value
 
     def set_name_from_file(self, filename):
@@ -263,7 +263,7 @@ class GNUSymbolTable(ArchiveMember):
     format = GNU
     normal = False
 
-    _name_literal = "/"
+    _name_literal = b"/"
 
     def __init__(self, archive, path=None):
         super(GNUSymbolTable, self).__init__(archive, path)
@@ -299,8 +299,8 @@ class GNUStringTable(ArchiveMember):
     format = GNU
     normal = False
 
-    _delimiter = "/\n"
-    _name_literal = "//"
+    _delimiter = b"/\n"
+    _name_literal = b"//"
 
     def __init__(self, archive, path=None):
         self._items = {}
@@ -383,7 +383,7 @@ class GNUStringTable(ArchiveMember):
                 raise InvalidArchiveException("Unterminated string table.")
             filename += c
         filename = filename[:-2]
-        self[member] = filename.strip(string.whitespace + "\x00")
+        self[member] = filename.strip(string.whitespace + b"\x00")
         instream.seek(prevoffset)
 
     def __len__(self):
@@ -462,7 +462,7 @@ class BSDShortMember(ArchiveMember):
 class BSDLongMember(ArchiveMember):
     format = BSD
 
-    _name_prefix = "#1/"
+    _name_prefix = b"#1/"
 
     def __init__(self, archive, path=None):
         self.namelength = 0
@@ -509,8 +509,8 @@ class BSDSymbolTable(ArchiveMember):
     format = BSD
     normal = False
 
-    _name_literal = "__.SYMDEF"
-    _sorted_suffix = "SORTED"
+    _name_literal = b"__.SYMDEF"
+    _sorted_suffix = b"SORTED"
 
     def __init__(self, archive, path=None):
         super(BSDSymbolTable, self).__init__(archive, path)
@@ -543,7 +543,7 @@ class BSDSymbolTable(ArchiveMember):
         if isinstance(path, int):
             self.sorted = (path == SORTED)
             if self.sorted:
-                self.filename = self._name_literal + " " + self._sorted_suffix
+                self.filename = self._name_literal + b" " + self._sorted_suffix
                 self.namelength = len(self.filename)
             else:
                 self.filename = None
@@ -577,8 +577,8 @@ class BSDSymbolTable(ArchiveMember):
             self.archive.outstream.write(self.filename)
 
 class Archive(object):
-    _magic = "!<arch>\n"
-    _body_pad = "\n"
+    _magic = b"!<arch>\n"
+    _body_pad = b"\n"
 
     def __init__(self, format=GNU):
         self.reset()
