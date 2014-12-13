@@ -653,7 +653,7 @@ class Archive(object):
                 self.format = member.format
                 self.instream.seek(member.offset + member.filesize)
                 break
-            except WrongMemberTypeException, e:
+            except WrongMemberTypeException as e:
                 log.debug("Wrong type for member: %s", e)
                 self.instream.seek(oldoffset)
             except EOFError:
@@ -697,7 +697,7 @@ class Archive(object):
                 if cls.format == self.format:
                     member = cls(self, filepath)
                     break
-            except WrongMemberTypeException, e:
+            except WrongMemberTypeException as e:
                 log.debug("Wrong type for member: %s", e)
         if member is None:
             raise WrongMemberTypeException("No member type satisfied {}".format(filepath))
