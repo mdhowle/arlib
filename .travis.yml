@@ -5,5 +5,7 @@ python:
     - "3.2"
     - "3.3"
     - "3.4"
-script: nosetests
-script: cd test_subjects/source && make
+
+script:
+    - cd test_subjects/source && make
+    - nosetests
