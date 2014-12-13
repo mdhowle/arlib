@@ -24,8 +24,6 @@ def test_loading_bsd_archive():
     for f in expected:
         s = os.stat(os.path.join("bsd1", f))
         assert s.st_mode == arc[f].mode
-        assert s.st_uid == arc[f].uid
-        assert s.st_gid == arc[f].gid
         assert s.st_size == arc[f].filesize
         assert s.st_mtime == arc[f].date
 
@@ -48,8 +46,6 @@ def test_loading_gnu_archive():
     for f in expected:
         s = os.stat(os.path.join("gnu1", f))
         assert s.st_mode == arc[f].mode
-        assert s.st_uid == arc[f].uid
-        assert s.st_gid == arc[f].gid
         assert s.st_size == arc[f].filesize
         assert s.st_mtime == arc[f].date
 
