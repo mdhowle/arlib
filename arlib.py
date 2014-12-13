@@ -629,7 +629,8 @@ class Archive(object):
 
         magic = self.instream.read(len(self._magic))
         if magic != self._magic:
-            raise InvalidArchiveException("Source of invalid archive: {0}".format(self.instream))
+            raise InvalidArchiveException("{0}: invalid magic: '{1}' ({2}) (expected '{3}' ({4}))".format(
+                self.instream, magic, len(magic), self._magic, len(self._magic)))
 
         member = self.read_member()
         while member is not None:
