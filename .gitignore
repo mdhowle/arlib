@@ -56,3 +56,7 @@ target/
 # build products
 *.o
 libsample.a
+
+# test output
+/gnu1/
+/bsd1/
