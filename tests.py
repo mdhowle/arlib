@@ -1,13 +1,26 @@
 import os
+import nose
 import shutil
 import logging
+import tempfile
 
 import arlib
 
 logging.getLogger("arlib").setLevel(logging.DEBUG)
 
+temp_dir = None
+
+def setup():
+    global temp_dir
+    temp_dir = tempfile.mkdtemp()
+
+def teardown():
+    global temp_dir
+    shutil.rmtree(temp_dir, ignore_errors=True)
+
+@nose.with_setup(setup, teardown)
 def test_loading_bsd_archive():
-    shutil.rmtree("bsd1", ignore_errors=True)
+    global temp_dir
 
     arc = arlib.Archive()
     arc.load("test_subjects/bsd1.a")
@@ -20,15 +33,16 @@ def test_loading_bsd_archive():
     assert expected == filenames
     assert arc["test.o"].mode == 0o100644
 
-    arc.extract_all("bsd1")
+    arc.extract_all(temp_dir)
     for f in expected:
-        s = os.stat(os.path.join("bsd1", f))
+        s = os.stat(os.path.join(temp_dir, f))
         assert s.st_mode == arc[f].mode
         assert s.st_size == arc[f].filesize
         assert s.st_mtime == arc[f].date
 
+@nose.with_setup(setup, teardown)
 def test_loading_gnu_archive():
-    shutil.rmtree("gnu1", ignore_errors=True)
+    global temp_dir
 
     arc = arlib.Archive()
     arc.load("test_subjects/gnu1.a")
@@ -42,42 +56,21 @@ def test_loading_gnu_archive():
     assert expected == filenames
     assert arc["test.o"].mode == 0o100644
 
-    arc.extract_all("gnu1")
+    arc.extract_all(temp_dir)
     for f in expected:
-        s = os.stat(os.path.join("gnu1", f))
+        s = os.stat(os.path.join(temp_dir, f))
         assert s.st_mode == arc[f].mode
         assert s.st_size == arc[f].filesize
         assert s.st_mtime == arc[f].date
 
-# print "===="
+@nose.with_setup(setup, teardown)
+def test_creating_bsd_archive():
+    global temp_dir
 
-# longpath1 = "/tmp/this_is_a_file_with_a_long_name.txt"
-# longpath2 = "/tmp/this_is_a_file_with_a_long_name_also.txt"
-# text = """Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed
-# consectetur suscipit porta. Sed et fermentum mi. Maecenas sed nibh ac arcu
-# condimentum finibus pellentesque sit amet magna. Proin porta ac eros quis
-# feugiat. Nullam eu nibh bibendum, condimentum metus in, accumsan risus.
-# Vivamus est massa, euismod sit amet consectetur ac, mattis in elit. Duis nisi
-# velit, pulvinar in tempus quis, vehicula eu nibh. Mauris posuere vehicula
-# gravida. Sed et justo ipsum. Integer et finibus orci. Vestibulum vitae dapibus
-# sem."""
-# open(longpath1, "wb").write(text)
-# open(longpath2, "wb").write(text.upper())
-
-# c = arlib.Archive(format=arlib.BSD)
-# c.add_member(".gitignore")
-# c.add_member("LICENSE.txt")
-# c.add_member(longpath1)
-# c.add_member("README.md")
-# c.add_member(longpath2)
-# c.save("/tmp/bsd.a")
-
-# print "===="
-
-# c = arlib.Archive(format=arlib.GNU)
-# c.add_member(".gitignore")
-# c.add_member("LICENSE.txt")
-# c.add_member(longpath1)
-# c.add_member("README.md")
-# c.add_member(longpath2)
-# c.save("/tmp/gnu.a")
+    c = arlib.Archive(format=arlib.BSD)
+    c.add("test_subjects/source/alpha.c")
+    c.add("test_subjects/source/another_long_file_name.c")
+    c.add("test_subjects/source/test.c")
+    c.add("test_subjects/source/this_is_a_long_file_name.c")
+    c.add("test_subjects/source/zeta.c")
+    c.save(os.path.join(temp_dir, "bsd.a"))

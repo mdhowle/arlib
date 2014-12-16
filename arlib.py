@@ -157,7 +157,7 @@ class ArchiveMember(object):
         raise NotImplementedError("The method set_name_from_archive() must be implemented in derived classes.")
 
     def write_header(self):
-        name = self.name.ljust(16)
+        name = self.name.encode(self.archive.encoding).ljust(16)
         date = str(self.date).encode(self.archive.encoding).ljust(12)
         uid = str(self.uid).encode(self.archive.encoding).ljust(6)
         gid = str(self.gid).encode(self.archive.encoding).ljust(6)
