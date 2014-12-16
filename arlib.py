@@ -161,7 +161,7 @@ class ArchiveMember(object):
         date = str(self.date).encode(self.archive.encoding).ljust(12)
         uid = str(self.uid).encode(self.archive.encoding).ljust(6)
         gid = str(self.gid).encode(self.archive.encoding).ljust(6)
-        mode = "{:o}".format(self.mode).encode(self.archive.encoding).ljust(8)
+        mode = "{0:o}".format(self.mode).encode(self.archive.encoding).ljust(8)
         size = str(self.size).encode(self.archive.encoding).ljust(10)
 
         packed = self._header_format.pack(name, date, uid, gid, mode, size, self._header_tail)
