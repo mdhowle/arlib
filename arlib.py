@@ -217,6 +217,7 @@ class ArchiveMember(object):
         if remaining > 0:
             buf = infile.read(remaining)
             outfile.write(buf)
+        infile.close()
         self.offset = newoffset
         self.sourcedir = None
 
