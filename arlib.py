@@ -25,9 +25,7 @@ _FORMATNAMES = {
 _BLOCKSIZE = 65535
 _WHITESPACERE = re.compile(r"[\s]")
 
-logging.basicConfig()
 log = logging.getLogger("arlib")
-log.setLevel(logging.INFO)
 
 import sys
 if sys.version_info >= (3, 0):
@@ -653,7 +651,7 @@ class Archive(object):
     def load(self, filething):
         self.reset()
 
-        log.info("Loading %r", filething)
+        log.debug("Loading %r", filething)
         if isstring(filething):
             self.instream = open(filething, "rb")
         else:
@@ -677,7 +675,7 @@ class Archive(object):
 
         if self.members and self.members[0].name == "debian-binary":
             self.format = DEB
-        log.info("Loaded %r", self)
+        log.debug("Loaded %r", self)
 
     def read_member(self):
         member = None
@@ -698,11 +696,11 @@ class Archive(object):
         if member is None:
             raise WrongMemberTypeException("Unknown member type")
 
-        log.info("Read member %r", member)
+        log.debug("Read member %r", member)
         return member
 
     def save(self, filething):
-        log.info("Saving %r", filething)
+        log.debug("Saving %r", filething)
         if isstring(filething):
             self.outstream = open(filething, "wb")
         else:
@@ -737,7 +735,7 @@ class Archive(object):
             if self.outstream.tell() % 2 == 1:
                 self.outstream.write(self._body_pad)
 
-        log.info("Saved %r", self)
+        log.debug("Saved %r", self)
 
     @staticmethod
     def write_member(member):
@@ -758,7 +756,7 @@ class Archive(object):
             raise WrongMemberTypeException("No member type satisfied {0}".format(filepath))
 
         self.members.append(member)
-        log.info("Added member %r", member)
+        log.debug("Added member %r", member)
 
     def __len__(self):
         return len(self.members)
