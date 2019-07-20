@@ -13,11 +13,13 @@ import logging
 
 GNU = 0
 BSD = 1
+DEB = 2
 
 _FORMATNAMES = {
     None: "(none)",
     GNU: "GNU",
-    BSD: "BSD"
+    BSD: "BSD",
+    DEB: "DEB"
 }
 
 _BLOCKSIZE = 65535
@@ -598,6 +600,14 @@ class BSDSymbolTable(ArchiveMember):
         if self.filename is not None:
             self.archive.outstream.write(self.filename.encode(self.archive.encoding))
 
+class DEBShortMember(BSDShortMember):
+    format = DEB
+
+    def __init__(self, member, path=None):
+        super(DEBShortMember, self).__init__(member, path)
+        self.uid = 0
+        self.gid = 0
+
 class Archive(object):
     _magic = b"!<arch>\n"
     _body_pad = b"\n"
@@ -628,7 +638,8 @@ class Archive(object):
 
     @format.setter
     def format(self, value):
-        assert value == GNU or value == BSD
+        if value not in _FORMATNAMES:
+            raise InvalidArchiveException("'%s' is not a valid archive type" % value)
         self._format = value
 
     def reset(self):
@@ -700,6 +711,25 @@ class Archive(object):
         self.write_member(self.symbols)
         if self.format == GNU:
             self.write_member(self.strings)
+        if self.format == DEB:
+            debian_format = [None, None, None]
+            extra = []
+            for m in self.members:
+                if m.name == "debian-binary":
+                    debian_format[0] = m
+                elif m.name.startswith("control.tar"):
+                    debian_format[1] = m
+                elif m.name.startswith("data.tar"):
+                    debian_format[2] = m
+                else:
+                    extra.append(m)
+
+            if None in debian_format:
+                raise InvalidArchiveException("Debian archives require debian-binary, control.tar(.*), and data.tar(.*)")
+
+            debian_format.extend(extra)
+            self.members = debian_format
+
         for m in self.members:
             self.write_member(m)
             if self.outstream.tell() % 2 == 1:
