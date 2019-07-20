@@ -675,6 +675,8 @@ class Archive(object):
                     raise InvalidArchiveException("Source of invalid archive: {0}".format(self.instream))
             member = self.read_member()
 
+        if self.members and self.members[0].name == "debian-binary":
+            self.format = DEB
         log.info("Loaded %r", self)
 
     def read_member(self):
